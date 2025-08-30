@@ -1,0 +1,107 @@
+steps:
+  # Build UI service
+  - name: "gcr.io/cloud-builders/docker"
+    dir: "ui"
+    secretEnv:
+      - NEXT_PUBLIC_GOOGLE_API_KEY
+      - NEXT_PUBLIC_MODEL_API
+    args:
+      - build
+      - '--no-cache'
+      - '-t'
+      - >-
+        $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/ui:$COMMIT_SHA
+      - '--build-arg'
+      - NEXT_PUBLIC_GOOGLE_API_KEY
+      - '--build-arg'
+      - NEXT_PUBLIC_MODEL_API
+      - '-f'
+      - Dockerfile
+      - '.'
+    id: Build-UI
+
+  # Push UI service
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - push
+      - >-
+        $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/ui:$COMMIT_SHA
+    id: Push-UI
+
+  # Build API service
+  - name: "gcr.io/cloud-builders/docker"
+    dir: "api"
+    args:
+      - build
+      - '--no-cache'
+      - '-t'
+      - >-
+        $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/api:$COMMIT_SHA
+      - '-f'
+      - Dockerfile
+      - '.'
+    id: Build-API
+
+  # Push API service
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - push
+      - >-
+        $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/api:$COMMIT_SHA
+    id: Push-API
+
+  # Deploy UI service
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    args:
+      - run
+      - services
+      - update
+      - meter-made-ui
+      - '--platform=managed'
+      - >-
+        --image=$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/ui:$COMMIT_SHA
+      - '--region=$_DEPLOY_REGION'
+      - '--set-secrets=NEXT_PUBLIC_GOOGLE_API_KEY=NEXT_PUBLIC_GOOGLE_API_KEY:latest'
+      - '--set-secrets=NEXT_PUBLIC_MODEL_API=NEXT_PUBLIC_MODEL_API:latest'
+      - '--quiet'
+    id: Deploy-UI
+    entrypoint: gcloud
+
+  # Deploy API service
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    args:
+      - run
+      - services
+      - update
+      - meter-made-api
+      - '--platform=managed'
+      - >-
+        --image=$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/api:$COMMIT_SHA
+      - '--region=$_DEPLOY_REGION'
+      - '--quiet'
+    id: Deploy-API
+    entrypoint: gcloud
+
+images:
+  - >-
+    $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/ui:$COMMIT_SHA
+  - >-
+    $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/api:$COMMIT_SHA
+
+options:
+  substitutionOption: ALLOW_LOOSE
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _DEPLOY_REGION: us-east4
+  _AR_HOSTNAME: us-east4-docker.pkg.dev
+  _AR_REPOSITORY: cloud-run-source-deploy
+  _AR_PROJECT_ID: meter-made-454616
+  _PLATFORM: managed
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/397485407730/secrets/NEXT_PUBLIC_GOOGLE_API_KEY/versions/latest
+      env: "NEXT_PUBLIC_GOOGLE_API_KEY"
+    - versionName: projects/397485407730/secrets/NEXT_PUBLIC_MODEL_API/versions/latest
+      env: "NEXT_PUBLIC_MODEL_API"
