@@ -78,7 +78,6 @@ steps:
       - >-
         --image=$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/api:$COMMIT_SHA
       - '--region=$_DEPLOY_REGION'
-      # Restrict ingress so only internal traffic from the same GCP project/VPC can reach the service
       - '--ingress=internal'
       - '--quiet'
     id: Deploy-API
