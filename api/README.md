@@ -15,3 +15,7 @@ The model is trained using the notebook available [here](https://nbviewer.org/gi
 Upon deployment, the FastAPI app loads the model from Google Storage and exposes an endpoint for making predictions. You can interact with the model through this API.
 
 For more details on how the app and model work, refer to the notebook and the FastAPI documentation.
+
+## Ingress / Access
+
+This service is deployed to Cloud Run with an "internal" ingress policy. That restricts incoming traffic to other resources inside the same Google Cloud project (for example, other Cloud Run services like the app in the [`ui`](./ui) subdirectory ) and disallows public internet access.
