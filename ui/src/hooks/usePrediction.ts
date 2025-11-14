@@ -37,12 +37,11 @@ export function usePrediction({ input, error }: UsePredictionProps) {
 }
 
 async function makePrediction(inputData: { d: string; h: number; x: number; y: number }) {
-  const apiUrl = process.env.NEXT_PUBLIC_MODEL_API;
-  if (!apiUrl) {
-    throw new Error("NEXT_PUBLIC_MODEL_API environment variable is not defined");
-  }
-
-  const response = await fetch(apiUrl, {
+  // POST to our own Next.js server route which will proxy the request to the
+  // model API. This avoids exposing the model API URL to the browser and
+  // allows the server-side code (running in the same project) to reach an
+  // "internal" Cloud Run service.
+  const response = await fetch(`/api/predict`, {
     method: "POST",
     headers: {
       accept: "application/json",
