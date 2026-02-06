@@ -35,6 +35,12 @@ from sklearn.metrics import (
 )
 
 try:
+    from imblearn.under_sampling import RandomUnderSampler
+except ImportError:
+    print("imbalanced-learn not installed. Install with: pip install imbalanced-learn")
+    sys.exit(1)
+
+try:
     import matplotlib.pyplot as plt
     import seaborn as sns
     MATPLOTLIB_AVAILABLE = True
@@ -189,8 +195,17 @@ class ParkingTicketModelTrainer:
         logger.info(f"Test positive class: {self.y_test.sum() / len(self.y_test):.1%}")
 
     def train_model(self) -> RandomForestClassifier:
-        """Train Random Forest model."""
+        """Train Random Forest model with undersampling of the majority class."""
         logger.info("Training Random Forest model...")
+
+        # Undersample the majority class (0) only in the training data
+        logger.info("Applying RandomUnderSampler to balance training data...")
+        rus = RandomUnderSampler(random_state=self.random_state)
+        X_train_resampled, y_train_resampled = rus.fit_resample(self.X_train, self.y_train)
+
+        logger.info(f"Original training set size: {len(self.X_train)}")
+        logger.info(f"Resampled training set size: {len(X_train_resampled)}")
+        logger.info(f"Resampled class distribution: {pd.Series(y_train_resampled).value_counts().to_dict()}")
 
         self.model = RandomForestClassifier(
             n_estimators=100,
@@ -202,7 +217,7 @@ class ParkingTicketModelTrainer:
             class_weight='balanced'
         )
 
-        self.model.fit(self.X_train, self.y_train)
+        self.model.fit(X_train_resampled, y_train_resampled)
         logger.info("Model training complete")
 
         return self.model
