@@ -9,17 +9,10 @@ Usage:
     python train_model.py [--input_file path/to/tickets.csv] [--output_dir ./models] [--no_plot]
 """
 
-import argparse
-import datetime
-import json
-import logging
-import os
-import pickle
-import sys
+import argparse, json, logging, pickle, sys
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
+import numpy as np, pandas as pd
 from sklearn.cluster import DBSCAN
 from sklearn.model_selection import cross_validate, train_test_split
 from sklearn.metrics import (

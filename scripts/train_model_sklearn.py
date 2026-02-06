@@ -11,16 +11,10 @@ Usage:
     python train_model_sklearn.py [--input_file path/to/tickets.csv] [--output_dir ./models] [--no_plot]
 """
 
-import argparse
-import json
-import logging
-import os
-import pickle
-import sys
+import argparse, json, logging, pickle, sys
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
+import numpy as np, pandas as pd
 from sklearn.cluster import DBSCAN
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_validate, train_test_split
@@ -155,7 +149,7 @@ class ParkingTicketModelTrainer:
 
         return X, y
 
-    def _compute_clusters(self, df: pd.DataFrame, eps: float = 0.005, min_samples: int = 3) -> np.ndarray:
+    def _compute_clusters(self, df: pd.DataFrame, eps: float = 0.003, min_samples: int = 50) -> np.ndarray:
         """
         Compute DBSCAN clusters for ticket locations.
 
@@ -199,8 +193,10 @@ class ParkingTicketModelTrainer:
         logger.info("Training Random Forest model...")
 
         # Undersample the majority class (0) only in the training data
+        # Use sampling_strategy=0.5 to keep 50% as many minority class samples as majority class
+        # This is less aggressive than 1:1 balancing and helps prevent over-correction
         logger.info("Applying RandomUnderSampler to balance training data...")
-        rus = RandomUnderSampler(random_state=self.random_state)
+        rus = RandomUnderSampler(sampling_strategy=0.5, random_state=self.random_state)
         X_train_resampled, y_train_resampled = rus.fit_resample(self.X_train, self.y_train)
 
         logger.info(f"Original training set size: {len(self.X_train)}")
