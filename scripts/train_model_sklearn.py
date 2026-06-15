@@ -12,6 +12,7 @@ Usage:
 """
 
 import argparse, json, logging, pickle, sys
+from datetime import date
 from pathlib import Path
 
 import numpy as np, pandas as pd
@@ -553,7 +554,7 @@ def main():
     parser.add_argument(
         '--input_file',
         type=str,
-        default='scripts/tickets_extracted.csv',
+        default='tickets_extracted.csv',
         help='Path to tickets_extracted.csv'
     )
     parser.add_argument(
@@ -565,7 +566,7 @@ def main():
     parser.add_argument(
         '--model_output',
         type=str,
-        default=None,
+        default=f'sklearn-{date.today().isoformat()}.pkl',
         help='Path to save the model.pkl file (e.g., api/model.pkl). Overrides output_dir for model only.'
     )
     parser.add_argument(
