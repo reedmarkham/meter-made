@@ -53,11 +53,16 @@ async function makePrediction(inputData: { d: string; h: number; x: number; y: n
   const contentType = response.headers.get("content-type") || "";
   const bodyText = await response.text();
 
-  let data: any;
+  type PredictionResponse = {
+    ticketed?: number;
+    error?: string;
+  };
+
+  let data: PredictionResponse | undefined;
   if (contentType.includes("application/json")) {
     try {
-      data = JSON.parse(bodyText);
-    } catch (err) {
+      data = JSON.parse(bodyText) as PredictionResponse;
+    } catch {
       throw new Error(`Prediction failed: invalid JSON response from server`);
     }
   } else {
@@ -65,8 +70,8 @@ async function makePrediction(inputData: { d: string; h: number; x: number; y: n
   }
 
   if (response.ok) {
-    return data.ticketed;
+    return data?.ticketed ?? 0;
   } else {
-    throw new Error(data.error || `Prediction failed: ${response.status} ${response.statusText}`);
+    throw new Error(data?.error || `Prediction failed: ${response.status} ${response.statusText}`);
   }
 }
