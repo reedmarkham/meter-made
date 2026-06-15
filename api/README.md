@@ -1,6 +1,16 @@
 # FastAPI Parking Ticket Prediction App
 
-This FastAPI app serves a machine learning model (`model.pkl`) for predicting expired meter parking tickets in Washington, DC. The model is trained in a [Colab notebook](./notebooks/meter-made.ipynb) and uploaded manually to Google Storage.
+This FastAPI app serves a machine learning model (`api/model.pkl`) for predicting expired meter parking tickets in Washington, DC.
+
+Notes (latest updates):
+- The project now saves per-run model bundles under `scripts/models/` as `/{modelname}-YYYY-MM-DD/` containing the `.pkl`, `results.json`, and plots.
+- An evaluation script (`scripts/evaluate_models.py`) selects the best recent model and copies it to `api/model.pkl` for serving. The most recent retrain occurred on 2026-06-14 and `api/model.pkl` was updated accordingly.
+
+Retrain & update workflow (quick):
+- Retrain locally: `python scripts/train_model.py --input_file scripts/tickets_extracted.csv --output_dir scripts/models`
+- Compare and promote best model: `python scripts/evaluate_models.py` (this copies the chosen `.pkl` to `api/model.pkl` and writes a comparison bundle).
+
+For more details on training and evaluation, see `scripts/train_model.py`, `scripts/train_model_sklearn.py`, and `scripts/evaluate_models.py`.
 
 ## Deployment
 
@@ -8,13 +18,11 @@ The app is deployed to **Cloud Run** using **Cloud Build** with a trigger connec
 
 ### Model Training and Upload
 
-The model is trained using the notebook available [here](https://nbviewer.org/github/reedmarkham/meter-made/blob/main/meter-made.ipynb). After training, the `model.pkl` file is manually uploaded to Google Storage.
-
 ### Serving the Model
 
-Upon deployment, the FastAPI app loads the model from Google Storage and exposes an endpoint for making predictions. You can interact with the model through this API.
+Locally and in CI, the FastAPI app loads `api/model.pkl` from the repository. Use the evaluation script to update `api/model.pkl` after retraining so the service serves the desired model.
 
-For more details on how the app and model work, refer to the notebook and the FastAPI documentation.
+For historical context the original training notebook is available [here](https://nbviewer.org/github/reedmarkham/meter-made/blob/main/meter-made.ipynb).
 
 ## Ingress / Access
 
