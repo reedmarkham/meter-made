@@ -564,12 +564,6 @@ def main():
         help='Directory to save model and results'
     )
     parser.add_argument(
-        '--model_output',
-        type=str,
-        default=f'sklearn-{date.today().isoformat()}.pkl',
-        help='Path to save the model.pkl file (e.g., api/model.pkl). Overrides output_dir for model only.'
-    )
-    parser.add_argument(
         '--no_plot',
         action='store_true',
         help='Skip generating plots'
@@ -588,12 +582,6 @@ def main():
             cross_val=not args.no_cv,
             plot=not args.no_plot
         )
-
-        # Save model to custom location if specified
-        if args.model_output:
-            model_path = trainer.save_model(args.model_output)
-            results['model_path'] = str(model_path)
-            logger.info(f"Model also saved to: {model_path}")
 
         logger.info("\n" + "=" * 50)
         logger.info("FINAL RESULTS SUMMARY")

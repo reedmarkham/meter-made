@@ -27,8 +27,7 @@ The scikit-learn version uses Random Forest and works reliably across all platfo
 ```bash
 python3 scripts/train_model_sklearn.py \
   --input_file scripts/tickets_extracted.csv \
-  --output_dir ./models \
-  --model_output api/model.pkl
+  --output_dir ./models
 ```
 
 ### Train Model (LightGBM version - advanced)
@@ -38,8 +37,7 @@ For systems with proper LightGBM setup (requires libomp):
 ```bash
 python3 scripts/train_model.py \
   --input_file scripts/tickets_extracted.csv \
-  --output_dir ./models \
-  --model_output api/model.pkl
+  --output_dir ./models
 ```
 
 ## Command-Line Options
