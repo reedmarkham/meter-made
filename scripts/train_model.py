@@ -9,12 +9,14 @@ Usage:
     python train_model.py [--input_file path/to/tickets.csv] [--output_dir ./models] [--no_plot]
 """
 
-import argparse, json, logging, pickle, sys
+import argparse, json, logging, pickle, sys, math
+from datetime import date
 from pathlib import Path
+
 
 import numpy as np, pandas as pd
 from sklearn.cluster import DBSCAN
-from sklearn.model_selection import cross_validate, train_test_split
+from sklearn.model_selection import cross_validate, train_test_split, StratifiedKFold
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -33,6 +35,7 @@ except ImportError:
 
 try:
     from imblearn.under_sampling import RandomUnderSampler
+    from imblearn.pipeline import Pipeline as ImbPipeline
 except ImportError:
     print("imbalanced-learn not installed. Install with: pip install imbalanced-learn")
     sys.exit(1)
@@ -68,7 +71,10 @@ class ParkingTicketModelTrainer:
         self.input_file = Path(input_file)
         self.output_dir = Path(output_dir)
         self.random_state = random_state
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.model_name = "lightgbm"
+        self.run_name = f"{self.model_name}-{date.today().isoformat()}"
+        self.run_dir = self.output_dir / self.run_name
+        self.run_dir.mkdir(parents=True, exist_ok=True)
 
         self.df = None
         self.X_train = None
@@ -152,7 +158,7 @@ class ParkingTicketModelTrainer:
 
         return X, y
 
-    def _compute_clusters(self, df: pd.DataFrame, eps: float = 0.01, min_samples: int = 5) -> np.ndarray:
+    def _compute_clusters(self, df: pd.DataFrame, eps: float = 0.003, min_samples: int = 50) -> np.ndarray:
         """
         Compute DBSCAN clusters for ticket locations.
 
@@ -216,6 +222,21 @@ class ParkingTicketModelTrainer:
 
         return self.model
 
+    def _safe_roc_auc(self, y_true, y_score):
+        """Return ROC AUC or None when only one class is present."""
+        if len(np.unique(y_true)) < 2:
+            logger.warning(
+                "ROC AUC undefined because test labels contain a single class: %s",
+                np.unique(y_true).tolist(),
+            )
+            return None
+
+        try:
+            return roc_auc_score(y_true, y_score)
+        except ValueError as exc:
+            logger.warning("ROC AUC computation failed: %s", exc)
+            return None
+
     def evaluate_model(self) -> dict:
         """
         Evaluate model performance on test set.
@@ -235,7 +256,7 @@ class ParkingTicketModelTrainer:
             'precision': precision_score(self.y_test, y_pred, average='weighted', zero_division=0),
             'recall': recall_score(self.y_test, y_pred, average='weighted', zero_division=0),
             'f1': f1_score(self.y_test, y_pred, average='weighted', zero_division=0),
-            'roc_auc': roc_auc_score(self.y_test, y_pred_proba),
+            'roc_auc': self._safe_roc_auc(self.y_test, y_pred_proba),
         }
 
         # Confusion matrix
@@ -250,7 +271,10 @@ class ParkingTicketModelTrainer:
         logger.info(f"Precision: {metrics['precision']:.4f}")
         logger.info(f"Recall:    {metrics['recall']:.4f}")
         logger.info(f"F1 Score:  {metrics['f1']:.4f}")
-        logger.info(f"ROC AUC:   {metrics['roc_auc']:.4f}")
+        if metrics['roc_auc'] is None:
+            logger.info("ROC AUC:   undefined (single-class test split)")
+        else:
+            logger.info(f"ROC AUC:   {metrics['roc_auc']:.4f}")
         logger.info("=" * 50)
 
         self.results['test_metrics'] = metrics
@@ -276,16 +300,20 @@ class ParkingTicketModelTrainer:
             'roc_auc': 'roc_auc'
         }
 
+        # Use stratified folds to avoid single-class CV splits and run undersampling inside the CV pipeline
+        cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=self.random_state)
+        pipeline = ImbPipeline([('rus', RandomUnderSampler(random_state=self.random_state)), ('clf', self.model)])
+
         cv_results = cross_validate(
-            self.model,
+            pipeline,
             self.X_train,
             self.y_train,
-            cv=n_splits,
+            cv=cv,
             scoring=scoring,
             return_train_score=True
         )
 
-        # Summarize results
+        # Summarize results with NaN-safe conversions
         summary = {}
         for metric in scoring.keys():
             test_key = f'test_{metric}'
@@ -294,13 +322,35 @@ class ParkingTicketModelTrainer:
             test_scores = cv_results[test_key]
             train_scores = cv_results[train_key]
 
+            # convert possible NaNs to None for JSON clarity
+            test_scores_list = [None if (isinstance(x, float) and math.isnan(x)) else float(x) for x in test_scores.tolist()]
+            train_scores_list = [None if (isinstance(x, float) and math.isnan(x)) else float(x) for x in train_scores.tolist()]
+
+            def mean_or_none(arr):
+                vals = [v for v in arr if v is not None]
+                if not vals:
+                    return None
+                return float(sum(vals) / len(vals))
+
+            def std_or_none(arr, mean_val):
+                if mean_val is None or len([v for v in arr if v is not None]) < 2:
+                    return None
+                vals = [v for v in arr if v is not None]
+                m = mean_val
+                return float((sum((v - m) ** 2 for v in vals) / (len(vals))) ** 0.5)
+
+            test_mean = mean_or_none(test_scores_list)
+            test_std = std_or_none(test_scores_list, test_mean)
+            train_mean = mean_or_none(train_scores_list)
+            train_std = std_or_none(train_scores_list, train_mean)
+
             summary[metric] = {
-                'test_mean': test_scores.mean(),
-                'test_std': test_scores.std(),
-                'train_mean': train_scores.mean(),
-                'train_std': train_scores.std(),
-                'test_scores': test_scores.tolist(),
-                'train_scores': train_scores.tolist(),
+                'test_mean': test_mean,
+                'test_std': test_std,
+                'train_mean': train_mean,
+                'train_std': train_std,
+                'test_scores': test_scores_list,
+                'train_scores': train_scores_list,
             }
 
         logger.info("=" * 50)
@@ -348,13 +398,13 @@ class ParkingTicketModelTrainer:
         Save trained model to disk.
 
         Args:
-            model_path: Path to save model. Defaults to output_dir/model.pkl
+            model_path: Path to save model. Defaults to output_dir/run_name/{model_name}-{date}.pkl
 
         Returns:
             Path to saved model
         """
         if model_path is None:
-            model_path = self.output_dir / "model.pkl"
+            model_path = self.run_dir / f"{self.run_name}.pkl"
         else:
             model_path = Path(model_path)
 
@@ -370,13 +420,13 @@ class ParkingTicketModelTrainer:
         Save evaluation results as JSON.
 
         Args:
-            results_path: Path to save results. Defaults to output_dir/results.json
+            results_path: Path to save results. Defaults to output_dir/run_name/results.json
 
         Returns:
             Path to saved results
         """
         if results_path is None:
-            results_path = self.output_dir / "results.json"
+            results_path = self.run_dir / "results.json"
         else:
             results_path = Path(results_path)
 
@@ -422,7 +472,7 @@ class ParkingTicketModelTrainer:
             return {}
 
         if output_dir is None:
-            output_dir = self.output_dir
+            output_dir = self.run_dir
         else:
             output_dir = Path(output_dir)
 
@@ -450,6 +500,9 @@ class ParkingTicketModelTrainer:
         try:
             # ROC curve
             y_pred_proba = self.model.predict_proba(self.X_test)[:, 1]
+            if len(np.unique(self.y_test)) < 2:
+                raise ValueError("Cannot plot ROC curve when test set contains only one class")
+
             fpr, tpr, _ = roc_curve(self.y_test, y_pred_proba)
             auc = roc_auc_score(self.y_test, y_pred_proba)
 
@@ -466,7 +519,7 @@ class ParkingTicketModelTrainer:
             plot_paths['roc_curve'] = str(roc_path)
             logger.info(f"Saved ROC curve plot to {roc_path}")
         except Exception as e:
-            logger.warning(f"Failed to create ROC curve plot: {e}")
+            logger.warning(f"Failed to create ROC curve plot: %s", e)
 
         try:
             # Feature importance plot
@@ -529,6 +582,7 @@ class ParkingTicketModelTrainer:
 
         self.results['model_path'] = str(model_path)
         self.results['results_path'] = str(results_path)
+        self.results['bundle_dir'] = str(self.run_dir)
 
         # Plots
         if plot:
@@ -551,7 +605,7 @@ def main():
     parser.add_argument(
         '--input_file',
         type=str,
-        default='scripts/tickets_extracted.csv',
+        default='tickets_extracted.csv',
         help='Path to tickets_extracted.csv'
     )
     parser.add_argument(

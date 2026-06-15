@@ -1,0 +1,46 @@
+{
+  "selected_model_type": "lightgbm",
+  "selected_run_dir": "/Users/reedmarkham/github/meter-made/scripts/models/lightgbm-2026-06-14",
+  "selected_model_path": "/Users/reedmarkham/github/meter-made/scripts/models/lightgbm-2026-06-14/lightgbm-2026-06-14.pkl",
+  "api_model_path": "/Users/reedmarkham/github/meter-made/api/model.pkl",
+  "metric": "cv_roc",
+  "chosen_metric_value": 0.9954868742442958,
+  "candidates": {
+    "sklearn": {
+      "run_dir": "/Users/reedmarkham/github/meter-made/scripts/models/sklearn-2026-06-14",
+      "model_path": "/Users/reedmarkham/github/meter-made/scripts/models/sklearn-2026-06-14/sklearn-2026-06-14.pkl",
+      "test_metrics": {
+        "accuracy": 0.9512295081967214,
+        "precision": 0.9530751142166084,
+        "recall": 0.9512295081967214,
+        "f1": 0.9518073689350728,
+        "roc_auc": 0.987458188482236
+      },
+      "cv_metrics": {
+        "accuracy": 0.9539768907916075,
+        "precision": 0.954831983544304,
+        "recall": 0.9539768907916075,
+        "f1": 0.9542704064143678,
+        "roc_auc": 0.9884741162808908
+      }
+    },
+    "lightgbm": {
+      "run_dir": "/Users/reedmarkham/github/meter-made/scripts/models/lightgbm-2026-06-14",
+      "model_path": "/Users/reedmarkham/github/meter-made/scripts/models/lightgbm-2026-06-14/lightgbm-2026-06-14.pkl",
+      "test_metrics": {
+        "accuracy": 0.9782786885245902,
+        "precision": 0.9790161349315362,
+        "recall": 0.9782786885245902,
+        "f1": 0.9784637502638827,
+        "roc_auc": 0.996803491267604
+      },
+      "cv_metrics": {
+        "accuracy": 0.9729394236667199,
+        "precision": 0.9743489179874876,
+        "recall": 0.9729394236667199,
+        "f1": 0.9732658308160165,
+        "roc_auc": 0.9954868742442958
+      }
+    }
+  }
+}

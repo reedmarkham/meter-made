@@ -66,7 +66,10 @@ class ParkingTicketModelTrainer:
         self.input_file = Path(input_file)
         self.output_dir = Path(output_dir)
         self.random_state = random_state
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.model_name = "sklearn"
+        self.run_name = f"{self.model_name}-{date.today().isoformat()}"
+        self.run_dir = self.output_dir / self.run_name
+        self.run_dir.mkdir(parents=True, exist_ok=True)
 
         self.df = None
         self.X_train = None
@@ -351,13 +354,13 @@ class ParkingTicketModelTrainer:
         Save trained model to disk.
 
         Args:
-            model_path: Path to save model. Defaults to output_dir/model.pkl
+            model_path: Path to save model. Defaults to output_dir/run_name/{model_name}-{date}.pkl
 
         Returns:
             Path to saved model
         """
         if model_path is None:
-            model_path = self.output_dir / "model.pkl"
+            model_path = self.run_dir / f"{self.run_name}.pkl"
         else:
             model_path = Path(model_path)
 
@@ -373,13 +376,13 @@ class ParkingTicketModelTrainer:
         Save evaluation results as JSON.
 
         Args:
-            results_path: Path to save results. Defaults to output_dir/results.json
+            results_path: Path to save results. Defaults to output_dir/run_name/results.json
 
         Returns:
             Path to saved results
         """
         if results_path is None:
-            results_path = self.output_dir / "results.json"
+            results_path = self.run_dir / "results.json"
         else:
             results_path = Path(results_path)
 
@@ -425,7 +428,7 @@ class ParkingTicketModelTrainer:
             return {}
 
         if output_dir is None:
-            output_dir = self.output_dir
+            output_dir = self.run_dir
         else:
             output_dir = Path(output_dir)
 
@@ -532,6 +535,7 @@ class ParkingTicketModelTrainer:
 
         self.results['model_path'] = str(model_path)
         self.results['results_path'] = str(results_path)
+        self.results['bundle_dir'] = str(self.run_dir)
 
         # Plots
         if plot:
