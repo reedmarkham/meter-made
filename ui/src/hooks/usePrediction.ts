@@ -50,11 +50,23 @@ async function makePrediction(inputData: { d: string; h: number; x: number; y: n
     body: JSON.stringify(inputData),
   });
 
-  const data = await response.json();
+  const contentType = response.headers.get("content-type") || "";
+  const bodyText = await response.text();
+
+  let data: any;
+  if (contentType.includes("application/json")) {
+    try {
+      data = JSON.parse(bodyText);
+    } catch (err) {
+      throw new Error(`Prediction failed: invalid JSON response from server`);
+    }
+  } else {
+    throw new Error(`Prediction failed: expected JSON but got ${response.status} ${response.statusText}. Response body: ${bodyText.slice(0, 200)}`);
+  }
 
   if (response.ok) {
     return data.ticketed;
   } else {
-    throw new Error(data.error || "Prediction failed");
+    throw new Error(data.error || `Prediction failed: ${response.status} ${response.statusText}`);
   }
 }

@@ -23,13 +23,28 @@ export async function POST(req: Request) {
       body: JSON.stringify(body),
     });
 
+    const contentType = resp.headers.get('content-type') || '';
     const text = await resp.text();
 
-    // Mirror upstream status and body
-    return new Response(text, {
+    if (contentType.includes('application/json')) {
+      return new Response(text, {
+        status: resp.status,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    console.error('Upstream model API returned non-JSON response', {
+      modelUrl,
       status: resp.status,
-      headers: { 'content-type': resp.headers.get('content-type') || 'application/json' },
+      statusText: resp.statusText,
+      contentType,
+      body: text,
     });
+
+    return NextResponse.json(
+      { error: `Model API returned non-JSON response: ${resp.status} ${resp.statusText}` },
+      { status: 502 },
+    );
   } catch (err) {
     console.error('Proxy predict error:', err);
     return NextResponse.json({ error: 'Proxy error' }, { status: 500 });
